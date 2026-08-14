@@ -60,6 +60,8 @@ class SteamBot {
                 this.client.removeAllListeners('disconnected');
                 this.client.removeAllListeners('steamGuard');
                 this.csgo.removeAllListeners('ready');
+                this.csgo.removeAllListeners('error');
+                this.csgo.removeAllListeners('sessionStart');
             };
 
             // Event: Steam Guard
@@ -97,7 +99,17 @@ class SteamBot {
             };
             this.csgo.once('ready', gcReadyHandler);
 
-            // Event: Error
+            // Event: GC session started (alternative to ready)
+            this.csgo.once('sessionStart', () => {
+                console.log(`📍 GC session started for ${this.username}`);
+            });
+
+            // Event: GC error (for debugging)
+            this.csgo.once('error', (err) => {
+                console.warn(`⚠️ GC error for ${this.username}: ${err.message}`);
+            });
+
+            // Event: Steam error
             this.client.once('error', (err) => {
                 console.error(`❌ Steam error for ${this.username}: ${err.message}`);
                 done(err);
@@ -110,7 +122,6 @@ class SteamBot {
             });
 
             // GC connection timeout — proceed if logged in but GC slow
-            // Increased from 15s to 30s to allow more time for GC initialization
             const gcTimeout = setTimeout(() => {
                 if (this.isLoggedIn) {
                     console.warn(`⏱️ GC timeout for ${this.username}, proceeding without GC session`);
