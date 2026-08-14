@@ -9,9 +9,9 @@ class SteamBot {
         this.sharedSecret = sharedSecret;
         this.proxyUrl = proxyUrl;
 
-        // Parse SOCKS5 proxy URL if provided
+        // Parse SOCKS5 proxy URL only if provided and valid
         const clientOptions = {};
-        if (proxyUrl) {
+        if (proxyUrl && proxyUrl.trim() && proxyUrl !== 'null') {
             try {
                 let socksUrl = proxyUrl;
                 if (socksUrl.startsWith('http://')) {
@@ -110,17 +110,18 @@ class SteamBot {
             });
 
             // GC connection timeout — proceed if logged in but GC slow
+            // Increased from 15s to 30s to allow more time for GC initialization
             const gcTimeout = setTimeout(() => {
                 if (this.isLoggedIn) {
                     console.warn(`⏱️ GC timeout for ${this.username}, proceeding without GC session`);
                     done();
                 }
-            }, 15000);
+            }, 30000);
 
             // Overall login timeout
             const loginTimeout = setTimeout(() => {
                 done(new Error(`Login timeout for ${this.username}`));
-            }, 30000);
+            }, 45000);
 
             console.log(`📡 Connecting to Steam ${this.proxyUrl ? 'via SOCKS5 proxy' : 'directly'}...`);
             try {
