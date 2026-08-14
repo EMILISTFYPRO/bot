@@ -11,6 +11,12 @@ try {
 
 const proxy = process.env.PROXY_URL || config.proxy || null;
 const delayBetweenAccounts = parseInt(process.env.DELAY_BETWEEN_ACCOUNTS) || config.delayBetweenAccounts || 2000;
+const serverIp = process.env.SERVER_IP || '127.0.0.1';
+const serverPort = parseInt(process.env.SERVER_PORT) || 27015;
+
+// Parse CLI flags
+const args = process.argv.slice(2);
+const joinServerMode = args.includes('--join-server');
 
 // Initialize database
 const db = new sqlite3.Database(path.join(__dirname, 'connectivity.db'), (err) => {
@@ -176,18 +182,109 @@ async function testConnectivity() {
     });
 }
 
-module.exports = { testConnectivity, db, config };
+/**
+ * Join a CS2 server for all accounts in the database.
+ * Each account logs in, launches CS2, then connects to the server.
+ *
+ * @param {string} ip   - Server IP address
+ * @param {number} port - Server port
+ */
+async function joinServer(ip, port) {
+    console.log(`\n🎮 Starting server join mode — target: ${ip}:${port}\n`);
+
+    const envCount = await syncAccountsFromEnv();
+    if (envCount > 0) {
+        console.log(`✅ Added ${envCount} account(s) from .env\n`);
+    }
+
+    return new Promise((resolve, reject) => {
+        db.all('SELECT * FROM accounts', async (err, accounts) => {
+            if (err) {
+                console.error('❌ Error fetching accounts:', err);
+                return reject(err);
+            }
+
+            if (!accounts || accounts.length === 0) {
+                console.error('❌ No accounts found. Add accounts to .env:');
+                console.error('   STEAM_ACCOUNTS=username:password:shared_secret');
+                return reject(new Error('No accounts'));
+            }
+
+            const bots = [];
+
+            // Register graceful shutdown
+            const shutdown = async (reason = 'manual exit') => {
+                console.log(`\n🛑 Shutting down — reason: ${reason}`);
+                for (const bot of bots) {
+                    try {
+                        bot.disconnect();
+                    } catch (_) {}
+                }
+                await new Promise(r => setTimeout(r, 1000));
+                db.close();
+                process.exit(0);
+            };
+
+            process.once('SIGINT',  () => shutdown('Ctrl+C'));
+            process.once('SIGTERM', () => shutdown('SIGTERM'));
+
+            for (const account of accounts) {
+                console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+                console.log(`👤 Account: ${account.username}`);
+
+                const bot = new SteamBot(
+                    account.username,
+                    account.password,
+                    account.shared_secret,
+                    proxy
+                );
+                bots.push(bot);
+
+                try {
+                    await bot.joinServer(ip, port);
+                    console.log(`✅ ${account.username} joined ${ip}:${port}`);
+                } catch (err) {
+                    console.error(`❌ ${account.username} failed to join: ${err.message}`);
+                }
+
+                if (account !== accounts[accounts.length - 1]) {
+                    await new Promise(r => setTimeout(r, delayBetweenAccounts));
+                }
+            }
+
+            console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log(`✅ All bots connected to ${ip}:${port}`);
+            console.log('Press Ctrl+C to disconnect all bots.');
+            console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+
+            // Keep process alive — bots stay connected until shutdown
+            resolve(bots);
+        });
+    });
+}
+
+module.exports = { testConnectivity, joinServer, db, config };
 
 // Run if executed directly
 if (require.main === module) {
-    testConnectivity()
-        .then(() => {
-            db.close();
-            process.exit(0);
-        })
-        .catch(err => {
-            console.error('❌ Connectivity check failed:', err.message);
-            db.close();
-            process.exit(1);
-        });
+    if (joinServerMode) {
+        joinServer(serverIp, serverPort)
+            .catch(err => {
+                console.error('❌ Server join failed:', err.message);
+                db.close();
+                process.exit(1);
+            });
+    } else {
+        testConnectivity()
+            .then(() => {
+                db.close();
+                process.exit(0);
+            })
+            .catch(err => {
+                console.error('❌ Connectivity check failed:', err.message);
+                db.close();
+                process.exit(1);
+            });
+    }
 }
+
