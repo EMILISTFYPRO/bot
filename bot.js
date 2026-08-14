@@ -45,11 +45,73 @@ db.serialize(() => {
 });
 
 /**
+ * Parse Steam accounts from STEAM_ACCOUNTS environment variable
+ * Format: username:password:shared_secret (one per line or comma-separated)
+ * @returns {Array} Array of {username, password, shared_secret} objects
+ */
+function parseAccountsFromEnv() {
+    const accountsEnv = process.env.STEAM_ACCOUNTS;
+    if (!accountsEnv) return [];
+
+    const accounts = [];
+    const lines = accountsEnv.split('\n').filter(line => line.trim());
+
+    for (const line of lines) {
+        const parts = line.trim().split(':');
+        if (parts.length === 3) {
+            accounts.push({
+                username: parts[0].trim(),
+                password: parts[1].trim(),
+                shared_secret: parts[2].trim()
+            });
+        }
+    }
+
+    return accounts;
+}
+
+/**
+ * Add accounts from .env STEAM_ACCOUNTS to database
+ */
+function syncAccountsFromEnv() {
+    return new Promise((resolve, reject) => {
+        const envAccounts = parseAccountsFromEnv();
+
+        if (envAccounts.length === 0) {
+            return resolve(0); // No accounts from env
+        }
+
+        let added = 0;
+        for (const account of envAccounts) {
+            db.run(
+                'INSERT OR IGNORE INTO accounts (username, password, shared_secret) VALUES (?, ?, ?)',
+                [account.username, account.password, account.shared_secret],
+                function(err) {
+                    if (err) {
+                        console.warn(`⚠️  Failed to add ${account.username}: ${err.message}`);
+                    } else if (this.changes > 0) {
+                        added++;
+                    }
+                }
+            );
+        }
+
+        setTimeout(() => resolve(added), 500);
+    });
+}
+
+/**
  * Test connectivity for all accounts in the database.
  * Each account is tested sequentially: login → CS2 presence → GC readiness → logout.
  */
 async function testConnectivity() {
     console.log('\n🔍 Starting Steam connectivity check...\n');
+
+    // Sync accounts from .env first
+    const envCount = await syncAccountsFromEnv();
+    if (envCount > 0) {
+        console.log(`✅ Added ${envCount} account(s) from .env\n`);
+    }
 
     return new Promise((resolve, reject) => {
         db.all('SELECT * FROM accounts', async (err, accounts) => {
@@ -59,7 +121,10 @@ async function testConnectivity() {
             }
 
             if (!accounts || accounts.length === 0) {
-                console.error('❌ No accounts found in database. Add accounts with: npm run manage-db');
+                console.error('❌ No accounts found. Add accounts in .env:');
+                console.error('   STEAM_ACCOUNTS=username:password:shared_secret');
+                console.error('   STEAM_ACCOUNTS=user2:pass2:secret2');
+                console.error('\n   Or use: npm run manage-db');
                 return reject(new Error('No accounts'));
             }
 
