@@ -71,7 +71,7 @@ class SteamBot {
             let disconnected = false;
 
             // Event: Logged in
-            this.client.on('loggedIn', () => {
+            this.client.on('loggedOn', () => {
                 loggedIn = true;
                 this.steamId = this.client.steamID.getSteamID64();
                 console.log(`✅ Logged in as ${this.username}`);
@@ -152,7 +152,7 @@ class SteamBot {
             }
 
             // Launch CS2 after login
-            this.client.on('loggedIn', () => {
+            this.client.on('loggedOn', () => {
                 console.log(`🚀 Launching CS2...`);
                 this.client.gamesPlayed([730], true);
             });
@@ -196,7 +196,7 @@ class SteamBot {
             }, 30000);
 
             // Clear timeout on login
-            this.client.on('loggedIn', () => {
+            this.client.on('loggedOn', () => {
                 clearTimeout(loginTimeout);
             });
         });
