@@ -82,7 +82,8 @@ async function testConnectivity() {
                 // Persist result to database
                 db.run(
                     'INSERT INTO connectivity_results (account_id, login_ok, cs2_ok, gc_ok, error) VALUES (?, ?, ?, ?, ?)',
-                    [account.id, result.loginOk ? 1 : 0, result.cs2Ok ? 1 : 0, result.gcOk ? 1 : 0, result.error || null]
+                    [account.id, result.loginOk ? 1 : 0, result.cs2Ok ? 1 : 0, result.gcOk ? 1 : 0, result.error || null],
+                    (dbErr) => { if (dbErr) console.warn(`⚠️  Failed to save result for ${account.username}: ${dbErr.message}`); }
                 );
 
                 console.log(`   🔐 Login:            ${result.loginOk ? '✅ OK' : '❌ FAIL'}`);
@@ -92,7 +93,7 @@ async function testConnectivity() {
                     console.log(`   ⚠️  Error: ${result.error}`);
                 }
 
-                if (accounts.indexOf(account) < accounts.length - 1) {
+                if (account !== accounts[accounts.length - 1]) {
                     await new Promise(r => setTimeout(r, delayBetweenAccounts));
                 }
             }
