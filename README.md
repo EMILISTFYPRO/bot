@@ -1,6 +1,11 @@
-# CS2 Commend Bot
+# CS2 Connectivity Checker
 
-Modern Steam commend bot with database tracking and Discord integration support.
+A multi-account Steam connectivity checker that verifies each account can log in to Steam, launch CS2 (app ID 730), and connect to the CS2 Game Coordinator.
+
+## Prerequisites
+
+- Node.js 18+
+- Valid Steam accounts (optionally with TOTP shared secrets for Steam Guard)
 
 ## Installation
 
@@ -8,64 +13,106 @@ Modern Steam commend bot with database tracking and Discord integration support.
 npm install
 ```
 
-## Setup
+## Configuration
 
-1. Create `config.json`:
+### Environment Variables (recommended)
+
+Copy `.env.example` to `.env` and edit as needed:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Description | Default |
+|---|---|---|
+| `PROXY_URL` | SOCKS5 proxy URL (`******host:port`) | none |
+| `DELAY_BETWEEN_ACCOUNTS` | Milliseconds to wait between accounts | `2000` |
+
+### Optional config.json
+
+Alternatively, copy `config.json.example` to `config.json`:
+
 ```json
 {
-    "apiKey": "your-key-here"
+    "proxy": "******host:port",
+    "delayBetweenAccounts": 2000
 }
 ```
 
-2. Create `bots.txt` with bot credentials:
-```
-username1:password1:sharedsecret1
-username2:password2:sharedsecret2
-username3:password3:sharedsecret3
-```
+## Setup
 
-3. Import bots into database:
+### Add accounts to the database
+
 ```bash
 npm run manage-db
-# Select option 2: Import bots from bots.txt
 ```
+
+Select **option 1** to add each Steam account. You will be prompted for:
+- Steam username
+- Steam password
+- TOTP shared secret (optional, for Steam Guard 2FA)
 
 ## Usage
 
-### Manage Database
+### Run connectivity check
+
+```bash
+npm run test-connectivity
+```
+
+This will, for each account in sequence:
+
+1. **Login** to Steam
+2. **Announce CS2** presence (app ID 730)
+3. **Connect** to the CS2 Game Coordinator
+4. **Log out** cleanly
+5. **Record** the result in the database
+
+### Expected output
+
+```
+🔍 Starting Steam connectivity check...
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👤 Account: myaccount
+✅ Logged in as myaccount (76561198xxxxxxxxx)
+🚀 Launching CS2 (app 730)...
+✅ Game Coordinator connected for myaccount
+👋 Logging out myaccount...
+   🔐 Login:            ✅ OK
+   🎮 CS2 presence:     ✅ OK
+   📡 GC connected:     ✅ OK
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Summary:
+   1/1 accounts logged in successfully
+   1/1 accounts reached Game Coordinator
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+### View past results
+
 ```bash
 npm run manage-db
+# Select option 3: View connectivity results
 ```
-Options:
-1. Add bot account manually
-2. Import bots from bots.txt
-3. Add customer balance
-4. List accounts
-5. List balances
-6. View commend history
-7. Delete account
-
-### Test Bot
-```bash
-npm start test 76561198000000000 5 5 5
-```
-Sends 5 friendly, 5 teaching, and 5 leader commends to the target Steam ID.
-
-## Features
-
-✅ Real Steam authentication with Steam Guard 2FA
-✅ Bulk bot import from file
-✅ Commend tracking database
-✅ Customer balance management
-✅ Error logging and retry
-✅ Discord bot integration ready
 
 ## Database
 
-The bot uses SQLite with three main tables:
-- `accounts`: Bot Steam accounts
-- `commends`: Commend history
-- `balances`: Customer balances
+The checker uses SQLite (`connectivity.db`) with two tables:
+
+- `accounts` — Steam account credentials
+- `connectivity_results` — per-account check results (login, CS2 presence, GC status)
+
+## Proxy Support
+
+Set `PROXY_URL` in your `.env` to route each bot's Steam connection through a SOCKS5 proxy:
+
+```
+PROXY_URL=******proxy-host:1080
+```
+
+HTTP proxy URLs (`http://...`) are automatically converted to SOCKS5.
 
 ## License
 
