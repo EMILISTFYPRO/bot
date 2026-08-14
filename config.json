@@ -1,0 +1,12 @@
+{
+  "steamWebAPIKey": "B394BAF171E947FD1A1C06BC7E5FA352",
+  "serverIP": "127.0.0.1",
+  "serverPort": 27015,
+  "proxy": null,
+  "delayBetweenAccounts": 1000,
+  "commendSettings": {
+    "friendly": 10,
+    "teaching": 10,
+    "leader": 10
+  }
+}
