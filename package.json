@@ -1,18 +1,18 @@
 {
-  "name": "cs2-commend-bot",
+  "name": "cs2-connectivity-checker",
   "version": "1.0.0",
-  "description": "Modern CS2 Commend Bot with Discord integration",
+  "description": "Multi-account CS2 Steam Game Coordinator connectivity checker",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js",
-    "manage-db": "node dbManager.js",
-    "test": "node bot.js test"
+    "test-connectivity": "node bot.js",
+    "manage-db": "node dbManager.js"
   },
   "keywords": [
     "cs2",
-    "commend",
-    "bot",
-    "discord"
+    "steam",
+    "connectivity",
+    "game-coordinator"
   ],
   "author": "",
   "license": "ISC",

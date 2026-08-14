@@ -1,6 +1,22 @@
-# CS2 Commend Bot
+# CS2 Multi-Account Connectivity Checker
 
-Modern Steam commend bot with database tracking and Discord integration support.
+Tests Steam login and CS2 Game Coordinator availability across multiple accounts you own.
+
+## What it does
+
+For each account stored in the database the tool will:
+
+1. Log in to Steam
+2. Launch CS2 (app ID 730)
+3. Wait for the Game Coordinator to confirm readiness
+4. Log out cleanly
+5. Print a one-line status summary per account
+
+## Prerequisites
+
+- Node.js 18+
+- Steam accounts with CS2 in their library
+- Optional: TOTP shared secrets for Steam Guard accounts
 
 ## Installation
 
@@ -8,64 +24,63 @@ Modern Steam commend bot with database tracking and Discord integration support.
 npm install
 ```
 
-## Setup
+## Configuration
 
-1. Create `config.json`:
-```json
-{
-    "apiKey": "your-key-here"
-}
-```
+Copy the example environment file and fill in any optional values:
 
-2. Create `bots.txt` with bot credentials:
-```
-username1:password1:sharedsecret1
-username2:password2:sharedsecret2
-username3:password3:sharedsecret3
-```
-
-3. Import bots into database:
 ```bash
-npm run manage-db
-# Select option 2: Import bots from bots.txt
+cp .env.example .env
 ```
 
-## Usage
+| Variable | Description |
+|---|---|
+| `PROXY_URL` | Optional SOCKS5 proxy (`******host:port`) |
 
-### Manage Database
+**Credentials are stored in the local SQLite database, not in plain-text files.**
+
+## Managing accounts
+
 ```bash
 npm run manage-db
 ```
-Options:
-1. Add bot account manually
-2. Import bots from bots.txt
-3. Add customer balance
-4. List accounts
-5. List balances
-6. View commend history
-7. Delete account
 
-### Test Bot
+Options include adding accounts manually or importing from a CSV/text file.
+
+## Running the connectivity check
+
 ```bash
-npm start test 76561198000000000 5 5 5
+npm run test-connectivity
 ```
-Sends 5 friendly, 5 teaching, and 5 leader commends to the target Steam ID.
 
-## Features
+Example output:
 
-✅ Real Steam authentication with Steam Guard 2FA
-✅ Bulk bot import from file
-✅ Commend tracking database
-✅ Customer balance management
-✅ Error logging and retry
-✅ Discord bot integration ready
+```
+🔍 Testing connectivity for 3 account(s)...
+
+👤 Account: steambot1
+✅ Logged in as steambot1 (76561198xxxxxxxxx)
+✅ Game Coordinator connected for steambot1
+👋 Logged out steambot1
+
+...
+
+==================================================
+📊 Connectivity Check Summary
+==================================================
+steambot1                | Login:✅ CS2:✅ GC:✅ Logout:✅
+steambot2                | Login:✅ CS2:✅ GC:⚠️  Logout:✅
+steambot3                | Login:❌ CS2:❌ GC:❌ Logout:✅ | Error: Invalid password
+==================================================
+```
 
 ## Database
 
-The bot uses SQLite with three main tables:
-- `accounts`: Bot Steam accounts
-- `commends`: Commend history
-- `balances`: Customer balances
+SQLite database (`commends.db`) with two tables:
+
+| Table | Purpose |
+|---|---|
+| `accounts` | Steam account credentials |
+| `connectivity_checks` | Historical check results |
 
 ## License
 
