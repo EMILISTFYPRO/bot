@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node bot.js",
     "test-connectivity": "npm start",
+    "join-server": "node bot.js --join-server",
     "manage-db": "node dbManager.js"
   },
   "keywords": [

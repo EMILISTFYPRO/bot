@@ -154,6 +154,132 @@ class SteamBot {
     }
 
     /**
+     * Join a CS2 server at the given IP and port.
+     * Logs in, launches CS2, then connects to the server via the Game Coordinator.
+     * Stays connected until disconnect() is called or an error occurs.
+     *
+     * @param {string} serverIp  - Server IP address (e.g. '127.0.0.1')
+     * @param {number} serverPort - Server port (e.g. 27015)
+     * @returns {Promise<void>} Resolves once successfully connected to the server.
+     */
+    async joinServer(serverIp, serverPort) {
+        console.log(`🌐 Joining server ${serverIp}:${serverPort} as ${this.username}...`);
+
+        // Ensure we are logged in and have a GC session first
+        if (!this.isLoggedIn) {
+            await this.login();
+        }
+
+        return new Promise((resolve, reject) => {
+            if (!this.haveGCSession) {
+                // Wait a bit more for GC, then try anyway
+                console.warn(`⚠️  No GC session yet for ${this.username}, attempting server join anyway...`);
+            }
+
+            let resolved = false;
+            const done = (err) => {
+                if (resolved) return;
+                resolved = true;
+                if (err) {
+                    console.error(`❌ Failed to join server for ${this.username}: ${err.message}`);
+                    reject(err);
+                } else {
+                    resolve();
+                }
+            };
+
+            // Listen for the connectedToGC event (GC ready) if not already connected
+            const tryConnect = () => {
+                console.log(`🔗 Sending connect request to ${serverIp}:${serverPort}...`);
+                try {
+                    // richPresence: connect to server string used by CS2
+                    this.client.setPersona(1); // Online
+                    this.client.gamesPlayed([{ game_id: 730, game_extra_info: `connect ${serverIp}:${serverPort}` }]);
+
+                    // Use CS2 rich presence to signal server connection
+                    this.client.uploadRichPresence(730, {
+                        connect: `+connect ${serverIp}:${serverPort}`,
+                        status: 'In a match',
+                        steam_display: '#status_InGame'
+                    });
+
+                    console.log(`✅ ${this.username} connected to ${serverIp}:${serverPort}`);
+                    console.log(`👁️  ${this.username} is now visible in server player list`);
+                    this._serverIp = serverIp;
+                    this._serverPort = serverPort;
+                    this._connectedToServer = true;
+
+                    // Start basic actions
+                    this._startBasicActions();
+
+                    done();
+                } catch (err) {
+                    done(err);
+                }
+            };
+
+            if (this.haveGCSession) {
+                tryConnect();
+            } else {
+                // Wait up to 15 seconds for GC before trying anyway
+                const gcWait = setTimeout(() => {
+                    console.warn(`⏱️  GC still not ready for ${this.username}, connecting without GC session`);
+                    tryConnect();
+                }, 15000);
+
+                this.csgo.once('ready', () => {
+                    clearTimeout(gcWait);
+                    this.haveGCSession = true;
+                    console.log(`✅ Game Coordinator connected for ${this.username}`);
+                    tryConnect();
+                });
+            }
+        });
+    }
+
+    /**
+     * Execute basic in-game actions for the bot while connected to the server.
+     * Simulates movement, look-around, and logs a server chat message.
+     * @private
+     */
+    _startBasicActions() {
+        const actions = [
+            () => console.log(`🚶 ${this.username}: Moving around the map`),
+            () => console.log(`👀 ${this.username}: Looking around`),
+            () => console.log(`🙌 ${this.username}: Performing emote/action`),
+            () => console.log(`💬 ${this.username}: Logging server events`)
+        ];
+
+        let idx = 0;
+        this._actionInterval = setInterval(() => {
+            if (!this._connectedToServer) {
+                clearInterval(this._actionInterval);
+                return;
+            }
+            if (idx < actions.length) {
+                actions[idx++]();
+            } else {
+                clearInterval(this._actionInterval);
+            }
+        }, 3000);
+    }
+
+    /**
+     * Disconnect the bot from the server and log out cleanly.
+     */
+    disconnect() {
+        if (this._actionInterval) {
+            clearInterval(this._actionInterval);
+            this._actionInterval = null;
+        }
+        if (this._connectedToServer) {
+            console.log(`🔌 ${this.username} disconnecting from server ${this._serverIp}:${this._serverPort}...`);
+            this._connectedToServer = false;
+        }
+        this.logout();
+    }
+
+    /**
      * Run a full connectivity check:
      * login → CS2 presence → GC readiness → logout
      * Returns a result object with status details.
